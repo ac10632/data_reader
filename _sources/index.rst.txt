@@ -10,6 +10,8 @@ Welcome to data_reader's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   introduction.rst
+   data_reader.rst
 
 
 Indices and tables

@@ -1,0 +1,1153 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Python Data Reader &#8212; data_reader 1.2 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Reader" href="data_reader.html" />
+    <link rel="prev" title="Welcome to data_reader’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="python-data-reader">
+<h1>Python Data Reader<a class="headerlink" href="#python-data-reader" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body"><p class="first">William Alexander</p>
+<p class="last"><a class="reference external" href="mailto:worksprogress1&#37;&#52;&#48;gmail&#46;com">worksprogress1<span>&#64;</span>gmail<span>&#46;</span>com</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Before model building can take place, there must be a dataset.
+Preparing the data for model building is both the least interesting but perhaps most crucial step in the process of building a model.
+Common tasks involved in preparing data for modeling are:</p>
+<ol class="arabic">
+<li><p class="first">Pulling the data.</p>
+<p>Sometimes the data is stored in a lovely, well-maintained database.
+Often the data arrives in character based files–either delimited files or flat files.  A deflimited file is one
+in which the fields are separated by a specific character, often a comma or pipe (|).  A flat file is one in which each field
+occupies a specific set of columns within the file.</p>
+<p>For the purposes of speed, repeatability, documentation (and sanity!) it is very useful to take a programmatic approach to specifying the
+format of the data and processing it.</p>
+</li>
+<li><p class="first">Cleaning the data.</p>
+<p>The data might be ready to go after reading it in.  More often, though, some or all of the fields will have issues that must
+be dealt with.  Common issues includes missing, bad or wild values. One may wish to treat these values in a variety of manners–flagging them,
+filling in a value, dropping them or even halting the process.</p>
+</li>
+<li><p class="first">Derived variables.</p>
+<p>Often, there are other quantities to be calculated from those being read in.  Some of these may be calculated from the data that’s read in.  Others may be
+mapped from auxilliary datasets.  For example, it some domains it is very commong to map a zip code to a CBSA (core-based statistical area) code.</p>
+</li>
+<li><p class="first">Sampling the data.</p>
+<p>If the file is large, then it can be useful or necessary to sample the data.</p>
+</li>
+<li><p class="first">Output.</p>
+<p>Once the data has been read, there are a variety of formats that might be used to store the data: pandas DataFrame, numpy matrix, Python list, or write to
+a file (delimited or TensorFlow TFRecords format).</p>
+</li>
+</ol>
+<p>The <em>data_reader</em> module is designed to facilitate these tasks.  <em>data_reader</em> provides the following functionality:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">Reading Common file types.</p>
+<p><em>data_reader</em> reads both delimited and flat files.</p>
+</li>
+<li><p class="first">Support for multiple data types.</p>
+<p><em>data_reader</em> supports the following data types: float, int, str, bytes, date, zip (U.S. zip codes), state (U.S. States), stateterr (U.S States and Territories).</p>
+</li>
+<li><p class="first">Data validation.</p>
+<p><em>data_reader</em> will validate</p>
+<blockquote>
+<div><ul class="simple">
+<li>the data type.</li>
+<li>the data is within a specified range.</li>
+<li>the data is in a list of allowed values.</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">Data error handling options.</p>
+<p>If the data fails a validation rule, the following options are available:</p>
+<blockquote>
+<div><ul class="simple">
+<li>replace the value with a user-specified value</li>
+<li>drop the row from the output</li>
+<li>halt the processing</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">Supports a user-supplied function during file read.</p>
+<p>The user can supply a function that is called as each row is processed.  The function can modify the values and create new fields.</p>
+</li>
+<li><p class="first">Supports a user-supplied class during file read.</p>
+<p>The user can supply a class.  The class is initialized once before the data is read.  A user-specified method from the class is called as each observation
+is read.  A class allows for, e.g., reading in a data map so that a field in the file can be mapped to a new field (simple example: creating a State field
+from a zip code).</p>
+</li>
+<li><p class="first">Multi-processing support.</p>
+<p><em>data_reader</em> supports parallel processing.  This can significantly reduce processing time.</p>
+</li>
+<li><p class="first">Multiple output options.</p>
+<p><em>data_reader</em> supports the following output formats: pandas DataFrame, numpy matrix, Python list, or delimited file.</p>
+</li>
+<li><p class="first">Read any portion of a file.</p>
+<p>The user can specify the start and end row to read.</p>
+</li>
+<li><p class="first">Random sampling.</p>
+<p>The user can specify a sampling rate.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>The code is available <a class="reference external" href="https://github.com/worksprogress1/DataReader">here</a>.</p>
+<p>It may be installed via pip3.  For example, on Ubuntu:</p>
+<p>sudo pip3 install git+https://git&#64;github.com/worksprogress1/DataReader</p>
+</div>
+<div class="section" id="approach">
+<h2>Approach<a class="headerlink" href="#approach" title="Permalink to this headline">¶</a></h2>
+<p>Any module designed to read a general file must provide the user a lot of flexibility.
+However, a reader that is constantly parsing a set of rules for each row is likely to be slow.  Conversely, code that is specially written to
+read a specific file will likely run faster but won’t have any flexibility.</p>
+<p>The approach of <em>data_reader</em> is to aim at the best of both.  The <em>data_reader</em> process is to:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Build a data dictionary specific to the data to be read.  Here is where all the data types and validation rules are specified.</li>
+<li>Create a <em>reader</em> module specific to this data dictionary.  The rules and data types are ‘hard coded’ into the module to maximize execution speed.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="list-of-functions-and-classes">
+<h2>List of Functions and Classes<a class="headerlink" href="#list-of-functions-and-classes" title="Permalink to this headline">¶</a></h2>
+<p>The data_reader module contains the following classes and functions:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">class <em>BuildDataDictionary</em></p>
+<p>This class builds up the data dictionary, field by field.</p>
+</li>
+<li><p class="first">function <em>create_reader</em></p>
+<p>This function creates the <em>reader</em> module based on the dictionary created by <em>BuildDataDictionary</em>.</p>
+</li>
+<li><p class="first">function <em>multi_process</em></p>
+<p>Executes the <em>reader</em> module in multi-process mode.</p>
+</li>
+<li><p class="first">class <em>PopulateCBSAData</em></p>
+<p>This class adds the CBSA FIPS code and, optionally,  CBSA name to the data.  It can also check for the agreement between the
+zip code and the state postal code.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>The <em>reader</em> module created by <em>create_reader</em> has one function to call: <em>reader</em>.  The parameter to <em>reader</em> is a dictionary.  The elements
+of the dictionary are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first"><em>data_file</em> (str).  Name of the file to read.</p>
+</li>
+<li><p class="first"><em>module_path</em> (str).  The path to the <em>reader</em> module.  If this omitted, then it is assumed that
+the module is in the reader subdirectory of the <em>data_reader</em> module.  The <em>reader</em> needs
+this path so that it can access legal values from the <em>data</em> subdirectory within the <em>reader</em>
+directory.</p>
+</li>
+<li><p class="first"><em>output_type</em> (str).  How to output the data. Choices are:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">‘list’.  A list of lists where each sublist is a row of data.</p>
+</li>
+<li><p class="first">‘numpy’. A numpy matrix.</p>
+</li>
+<li><p class="first">‘pandas’. A pandas DataFrame. This is the default value.</p>
+</li>
+<li><p class="first">‘delim’. A delimited file.</p>
+</li>
+<li><p class="first">‘TFRecords’. A TensorFlow TFRecords format file.</p>
+<p>If the user selects output_type = ‘delim’ or ‘TFRecords’, additional parameters are used:</p>
+<ul class="simple">
+<li><em>output_file</em> (str). The name of the output file.</li>
+<li><em>output_delim</em> (str) (‘delim’ only). The delimiter to use with <em>output_file</em>. The default value is ‘,’.</li>
+<li><em>output_headers</em> (bool) (‘delim’ only). If <em>True</em>, output a header row.  The default is <em>True</em>.</li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><em>gzip</em> (bool). (optional) If <em>True</em> the output is gzipped. Note: gzip executable must be in the path for this to work.</li>
+<li><em>split_file</em> (int). (optional). If this is defined, the output is split into separate files of <em>split_file</em> rows.</li>
+<li><em>partition</em> (str). (optional). The name of a field in the data to partition on. If this is defined, then separate files are
+created for each value of <em>partition</em> within a subdirectory whose name is “&lt;partition var&gt;=&lt;value&gt;”. The <em>partition</em> field is
+dropped from the output files.</li>
+<li><em>module_name</em>. (optional).  The defualt is ‘reader’. This is the name of the module that is created.  If, in one
+run, multiple readers are created, they must have distinct module names.</li>
+</ul>
+<p>The value must be at least 10.</p>
+<blockquote>
+<div><p>Note that the file is written line by line so the entire dataset is never in memory.</p>
+</div></blockquote>
+</li>
+<li><p class="first"><em>headers</em> (bool).  True means the input file has headers.  The default value is <em>False</em>.</p>
+</li>
+<li><p class="first"><em>sample_rate</em> (float). The rate at which to sample the file.  The default value is 1.</p>
+</li>
+<li><p class="first"><em>first_row</em> (int). The first row of data to read.</p>
+</li>
+<li><p class="first"><em>last_row</em> (int). The last row of the data to read.</p>
+<p>Note that <em>first_row</em> and <em>last_row</em> are ignored by function <em>multi_process</em>.</p>
+</li>
+<li><p class="first"><em>user_function</em> (function). A user-supplied function that is called as each row is processed.
+It can take only one argument, a dictionary.  The dictionary keys are the names of the fields.
+The function can modify or add entries to the dictionary.
+The function is called only after the row has undergone data validation (field type, legal values, maximum and
+minimum values). The function must return a type <em>bool</em>.  If the return is <em>True</em>, the row is kept.</p>
+</li>
+<li><p class="first">For user-supplied classes, the following entries are required:</p>
+<ul>
+<li><p class="first"><em>user_class</em> (class).  The class for <em>reader</em> to use.</p>
+</li>
+<li><dl class="first docutils">
+<dt><em>user_class_init</em> (dict).  A dictionary supplying any initialization parameters required by the class.</dt>
+<dd><p class="first last">The keys are the names of the parameters.  If the initialization requires no parameters, supply an empty
+dictionary.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><em>user_method</em> (str).  The name of the method to run, as a string. The method can take only a single argument:</dt>
+<dd><p class="first last">a dictionary.  The dictionary contents are the current row being read.  The dictionary keys are the names of the fields.
+The method can modify or add entries to the dictionary.
+<em>user_method</em> is called only after the row has undergone data validation (field type, legal values, maximum and
+minimum values). The method must return a type <em>bool</em>.  If the return is true, the row is kept.</p>
+</dd>
+</dl>
+<p>Note: the <em>user_function</em> is called before the <em>user_method</em>.</p>
+</li>
+</ul>
+</li>
+<li><p class="first"><em>window</em> (int). An optional window for <em>mmap</em>. If there are memory issues (which there should not be on 64 bit implementations),
+this is the size of the window into the file used by <em>mmap</em>. If <em>None</em>, there is no window.  The default is <em>None</em>.</p>
+</li>
+<li><p class="first"><em>start_byte</em> (int).  The byte at which to start reading the file.  The default value is 0.
+If the value is greater than 0, then reading begins at the next line (“\n”) after <em>start_byte</em>.</p>
+</li>
+<li><p class="first"><em>end_byte</em> (int). The byte at which to stop reading the file.  The default value is <em>None</em>
+(read to the end of the file).  If a non-<em>None</em> value is specified, reading stops at the first
+line whose first byte is greater than end_byte.</p>
+<p>The above two will generally only be used for reading the file in multiprocessing mode.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>If the <em>output_type</em> is ‘list’, ‘numpy’ or ‘pandas’ then <em>reader</em> returns the data in that format.  If the <em>output_type</em> is
+<em>delim</em>, then there is no return from <em>reader</em>.</p>
+</div>
+<div class="section" id="data-types">
+<h2>Data Types<a class="headerlink" href="#data-types" title="Permalink to this headline">¶</a></h2>
+<p>data_reader supports the following data types:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">float. Real value.</p>
+</li>
+<li><p class="first">int. Integer value.</p>
+</li>
+<li><p class="first">date. Date value.</p>
+<p>The following date formats are accepted:</p>
+<ul class="simple">
+<li>CCYYMMDD</li>
+<li>CCYYMM</li>
+<li>YYMM</li>
+<li>MM/DD/CCYY</li>
+<li>MM/DD/YY</li>
+<li>MMDDCCYY</li>
+<li>MM/CCYY</li>
+<li>CCYY/MM/DD</li>
+</ul>
+<p>If an E is appended to the format, the date is moved to the end of the month. If a B is appended, the date is moved to the
+first of the month.</p>
+</li>
+<li><p class="first">str. String value.</p>
+</li>
+<li><p class="first">bytes. Array of bytes.</p>
+</li>
+<li><p class="first">zip. US zip code. Values are automatically validated.</p>
+</li>
+<li><p class="first">state. US state postal code. Values are automatically validated.</p>
+</li>
+<li><p class="first">stateterr. US states and territories. Values are automatically validated.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="tensorflow-support">
+<h2>TensorFlow Support<a class="headerlink" href="#tensorflow-support" title="Permalink to this headline">¶</a></h2>
+<p>data_reader provides support for TensorFlow in the following manners:</p>
+<ol class="arabic">
+<li><p class="first">Creation of TFRecords files.</p>
+<p>TensorFlow includes support for reading CSV files and a binary format known as TFRecords. TensorFlow includes several APIs for reading and writing this format.
+TFRecords files support lists of three basic data types:</p>
+<ul class="simple">
+<li>int</li>
+<li>float</li>
+<li>byte</li>
+</ul>
+<p>Anything that is put into a TFRecord file must be one of these.  data_reader makes the following conversions:</p>
+<ul class="simple">
+<li>Strings.  Strings are converted to a list of bytes.</li>
+<li>Dates. Dates are converted to a length-3 list of integers: [year, month, day].</li>
+</ul>
+</li>
+<li><p class="first">Support functions.</p>
+<p>There are two common functions used in TensorFlow that require the field names and types of the input data.  These are:</p>
+<ul class="simple">
+<li><em>input_fn</em>. The input_fn is called by TensorFlow to supply its routines with data. The input_fn as attributes such as the size of each batch to draw,
+whether the data should be shuffled, the observations at which to start and end reading.  The function can also include the creation of new
+features.  The input function needs to explicitly define each feature and its type.</li>
+<li><em>model_columns</em>. The model columns defines the features used in the model. The function not only specifies the features in the model but also their
+form.  For instance, features of type <em>float</em> can enter as their raw value or as buckets.  Features of type string can enter with a list of values
+the feature can take on or TensorFlow can build the list using a hash table.  (<em>Note</em>: if the data_reader is given a list of legal values, the
+former is used.) Further, these categorical variables can enter using a one-hot (indicator) format or an embedding layer (for neural nets).</li>
+</ul>
+<p>data_reader creates these functions by writing them to a Python module (file) specified by the user.</p>
+</li>
+</ol>
+<p>The <em>input_fn</em> created by data_reader reconstructs strings from byte arrays.  TensorFlow itself has no date type. The user specifies how to handle dates
+when data_reader builds the input_fn. All the choices result in an output of type int.  The choices are:</p>
+<ul class="simple">
+<li>CCYYMMDD</li>
+<li>CCYYMM</li>
+<li>CCYY</li>
+<li>MM</li>
+<li>DD</li>
+</ul>
+<div class="section" id="using-input-fn">
+<h3>Using input_fn<a class="headerlink" href="#using-input-fn" title="Permalink to this headline">¶</a></h3>
+<p>The <em>input_fn</em> function takes several parameters that control the way the data is accessed.  These are:</p>
+<ul class="simple">
+<li>files. The file name or list of file names to read.</li>
+<li>batch_size. The number of observations to include in each batch read from the file.</li>
+<li>shuffle.  If 0, the data is not shuffled.  If &gt; 0, then this many observations are shuffled before reading.</li>
+<li>skip. The number of observations to skip before reading.  This allows accessing records further into the file.</li>
+<li>num_epochs. The number of time to repeat reading the data before an EOF flag is thrown.</li>
+<li>parallel_calls.  The number of threads to use when reading the file.</li>
+<li><dl class="first docutils">
+<dt>include_columns.  This is the same dictionary that is input to the <em>model_columns</em> function (below). For <em>input_fn</em>, it</dt>
+<dd>directs how features of type INT/DATE should be handled.  The keys to <em>input_columns</em> are the features to be used in the model.
+The entries are themselves dictionary (“feature dictionary”).  For features of type INT/DATE, the feature dictionary may have a key
+named “type”.  If “type” has value STR, then the output feature is converted to type STR. If “type” has value “FLOAT”, the return is type
+FLOAT.  If <em>include_columns</em> is not passed to <em>input_fn</em> or there is no key for an INT/DATE feature, then the return is type FLOAT.</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="using-model-columns">
+<h3>Using model_columns<a class="headerlink" href="#using-model-columns" title="Permalink to this headline">¶</a></h3>
+<p>The <em>model_columns</em> function takes a dictionary, <em>include_columns</em>, as input and returns a dictionary of features which specifies the model structure to TensorFlow.
+The keys to <em>input_columns</em> are the names of the features to include in the model. The dictionary entry is also a dictionary (“feature dictionary”).
+The feature dictionary directs how the feature is treated in the model.  Possible entries vary by the type of the tensor:</p>
+<ul class="simple">
+<li><dl class="first docutils">
+<dt>INT/DATE</dt>
+<dd><ul class="first last">
+<li><em>type</em>. The type entry directs whether to treat the tensor as numeric (FLOAT) or a string (STR). The remainder of the entries
+conform to the class chosen.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>STR, BYTES (and DATE/INT when key “type” is STR):</dt>
+<dd><ul class="first last">
+<li>if the data dictionary specifies legal values, then category_column_with_vocabulary_list is used.</li>
+<li><dl class="first docutils">
+<dt>if the dict has an entry <em>vocab_list</em> then that vocabularly list is used. Note: the <em>vocab_list</em></dt>
+<dd>must be of type str.</dd>
+</dl>
+</li>
+<li>if the dict has an entry <em>hash_size</em> then a hash list of that size is used</li>
+<li>if there are none of the above, then a hash list of 1000 is used</li>
+<li>if the dict has an entry <em>n_oov</em> then there are this many out-of-value catch-all buckets</li>
+<li>if the dict has an entry <em>embed_size</em> then an embedded layer of that size is used</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>FLOAT (and DATE/INT when key “type” is FLOAT):</dt>
+<dd><ul class="first last">
+<li>if nothing is specified, then it is treated as numeric_column</li>
+<li>if the dict has a key <em>boundaries</em> with a list of boundary values, then bucketized_column is used</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<p>Even though there are not many classes and functions within <em>data_reader</em>, there is a lot of flexibility.  Examples will be helpful.</p>
+<div class="section" id="example-1-reading-a-delimited-file-with-no-headers">
+<h3>Example 1: Reading a delimited file with no headers.<a class="headerlink" href="#example-1-reading-a-delimited-file-with-no-headers" title="Permalink to this headline">¶</a></h3>
+<p>This example reads the file that maps zip codes to CBSA codes that is in the data directory of this data_reader distribution.  The file has the following fields:</p>
+<blockquote>
+<div><ul class="simple">
+<li>zip.  The 5-digit zip code.</li>
+<li>CBSA code.  If the zip is in a CBSA, this is the 5-digit CBSA code.  If it is not, it is the state postal abbreviation.</li>
+<li>state postal abbreviation.  The 2-character state abbreviation.</li>
+<li>level. The level of the CBSA code: metropolitan or micropolitan.</li>
+<li>CBSA name.  The name of the CBSA.</li>
+</ul>
+</div></blockquote>
+<p>The data dictionary for this file can be built as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">data_reader.data_reader</span> <span class="k">as</span> <span class="nn">d</span>
+
+<span class="n">d0</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;zip&#39;</span><span class="p">,</span> <span class="s1">&#39;zip&#39;</span><span class="p">,</span> <span class="n">illegal_replacement_value</span><span class="o">=</span><span class="s1">&#39;&quot;00000&quot;&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;fix&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;cbsa_code&#39;</span><span class="p">,</span> <span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;stateterr&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;level&#39;</span><span class="p">,</span> <span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;cbsa_name&#39;</span><span class="p">,</span> <span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The dictionary uses two special data types: <em>zip</em> and <em>stateterr</em> (U.S.states and territories).  The <em>reader</em> code produced by <em>data_reader</em> will check that the values
+in the <em>zip</em> field are valid zip codes.  Similarly, it will check that the <em>state</em> field contains valid state and territory values.  If a <em>zip</em> is found to be invalid,
+we’ve directed that the value be replaced by ‘00000’.</p>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li>String value passed to the <em>add_field</em> method for parameters <em>illegal_replacement_value</em>, <em>maximum_replacement_value</em> and <em>minimum_replacement_value</em>
+must be enclosed in double quotes inside single quotes as in ‘“00000”’.  Bytes fields would include the <em>b</em> between the single and double quotes such as ‘b”00000”’.</li>
+<li>If the file does not have headers, the fields must be put into the dictionary in the same order that they are in the file to be read.</li>
+<li>The <em>action</em> parameter value of ‘fix’ directs that invalid values are to be replaced by the illegal_replacement_value of ‘00000’. Other options for <em>action</em> are: ‘drop’ and ‘fatal’
+which cause <em>reader</em> to drop the row and abend, respectively.</li>
+</ul>
+<p>The code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">d</span><span class="o">.</span><span class="n">create_reader</span><span class="p">(</span><span class="n">d0</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">file_format</span><span class="o">=</span><span class="s1">&#39;delim&#39;</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;|&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>creates the <em>reader</em> module in the distribution directory of <em>data_reader</em>.  It can be imported as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">data_reader.reader.reader</span> <span class="k">as</span> <span class="nn">r</span>
+</pre></div>
+</div>
+<p>The <em>reader</em> takes its parameters as a dictionary:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pkg_resources</span>
+<span class="n">cbsa_file</span> <span class="o">=</span> <span class="n">pkg_resources</span><span class="o">.</span><span class="n">resource_filename</span><span class="p">(</span><span class="s1">&#39;data_reader&#39;</span><span class="p">,</span> <span class="s1">&#39;data/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;zipCBSA.dat&#39;</span>
+
+<span class="n">parameters0</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;data_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cbsa_path</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;output_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pandas&#39;</span>
+</pre></div>
+</div>
+<p>These are the minimal parameters required by the <em>reader</em>: the file to read and the output type.  This code reads the file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">data_reader.reader.reader</span> <span class="k">as</span> <span class="nn">r</span>
+<span class="n">d0_data</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">parameters0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The result is a pandas DataFrame with columns <em>zip</em>, <em>cbsa_code</em>, <em>state</em>, <em>level</em>, and <em>cbsa_name</em>.</p>
+</div>
+<div class="section" id="example-2-reading-a-file-with-headers">
+<h3>Example 2. Reading a file with headers.<a class="headerlink" href="#example-2-reading-a-file-with-headers" title="Permalink to this headline">¶</a></h3>
+<p>The file ‘zipCBSA_headers.dat’ in the <em>test_data</em> directory of the <em>data_reader</em> module contains the same data as the file in Example 1 but with headers.
+The code from Example 1 will work with the addition of:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+<p><strong>Notes:</strong></p>
+<ul>
+<li><p class="first">The field names in the dictionary must match the corresponding names in the header row.  The match is case sensitive.</p>
+</li>
+<li><p class="first">Since the file has headers, the entries may be placed into the dictionary in any order.  Also, not all the fields need to be read.  For example,
+if the dictionary is specified as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">d0</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;zip&#39;</span><span class="p">,</span> <span class="s1">&#39;zip&#39;</span><span class="p">,</span> <span class="n">illegal_replacement_value</span><span class="o">=</span><span class="s1">&#39;&quot;00000&quot;&#39;</span><span class="p">)</span>
+<span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;stateterr&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>then only the <em>zip</em> and <em>state</em> fields will be read.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="example-3-subsetting-a-file-based-on-values-in-the-file">
+<h3>Example 3. Subsetting a file based on values in the file.<a class="headerlink" href="#example-3-subsetting-a-file-based-on-values-in-the-file" title="Permalink to this headline">¶</a></h3>
+<p>The ‘drop’ option of the <em>action</em> parameter can be used to subset the file as it is read.  Returning to Example 1, suppose we were only interested
+in the zip codes in California.  If we alter the <em>state</em> entry in the dictionary to:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">d0</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="n">legal_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s1">&#39;CA&#39;</span><span class="p">]),</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;drop&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>then any time a row has a value other than ‘CA’ for state, it will be dropped.  Note that instead of specifying a type of ‘stateterr’ for state, we’ve used ‘str’ and
+supplied the one value we’re interested in.</p>
+</div>
+<div class="section" id="example-4-a-more-complex-subsetting-example">
+<h3>Example 4. A more complex subsetting example.<a class="headerlink" href="#example-4-a-more-complex-subsetting-example" title="Permalink to this headline">¶</a></h3>
+<p>In this example, there are two files to read.  The first file (‘customers’) contains information about customers that doesn’t change month-to-month.  There is one record per
+customer.  The second file contains monthly information about the customer (‘monthly’).
+We want to sample the ‘customers’ file and pull all the records for these customers from the ‘monthly’ file.</p>
+<p>The code to sample ‘customers’ is:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Create the dictionary.</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;account_number&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;r&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;income&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">,</span><span class="s1">&#39;int&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;open_date&#39;</span><span class="p">,</span><span class="s1">&#39;date&#39;</span><span class="p">,</span><span class="s1">&#39;mm/dd/ccyy&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;close_date&#39;</span><span class="p">,</span><span class="s1">&#39;date&#39;</span><span class="p">,</span><span class="s1">&#39;ccyymmdd&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;trans_code&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span><span class="s1">&#39;state&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;rate&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;gender&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;marketing_flag&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+
+<span class="c1"># create the *reader* module.</span>
+<span class="n">d</span><span class="o">.</span><span class="n">create_reader</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">file_format</span><span class="o">=</span><span class="s1">&#39;delim&#39;</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+
+<span class="c1"># parameters for *reader*</span>
+<span class="kn">import</span> <span class="nn">pkg_resources</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;data_file&#39;</span><span class="p">]</span> <span class="o">=</span>  <span class="n">pkg_resources</span><span class="o">.</span><span class="n">resource_filename</span><span class="p">(</span><span class="s1">&#39;data_reader&#39;</span><span class="p">,</span> <span class="s1">&#39;test_data/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;customers.csv&#39;</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;output_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pandas&#39;</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;sample_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.1</span>
+
+<span class="c1"># read the file</span>
+<span class="kn">import</span> <span class="nn">data_reader.reader.reader</span> <span class="k">as</span> <span class="nn">r</span>
+<span class="n">ds_data</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that the this example shows two of the different available date formats.  The <em>open_date</em> field uses the format ‘mm/dd/ccyy’, such as ‘3/31/2017’.  The <em>close_date</em>
+field uses the ‘ccyymmdd’ format, such as ‘20170331’. A 10% sample is read from the file.  The key between the two files is <em>account_number</em>.
+The approach is to specify these account numbers as the legal value when constructing the data dictionary for the ‘monthly’ file and to direct it to drop any illegal values.</p>
+<p>The code to do this looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># legal values are specified as a sorted numpy array</span>
+<span class="n">ok_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">ds_data</span><span class="p">[</span><span class="s1">&#39;account_number&#39;</span><span class="p">]))</span>
+<span class="n">ok_id</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+<span class="c1"># build the data dictionary for the monthly file</span>
+<span class="n">dm</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">dm</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;account_number&#39;</span><span class="p">,</span><span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="n">legal_values</span><span class="o">=</span><span class="n">ok_id</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;drop&#39;</span><span class="p">)</span>
+<span class="n">dm</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;r&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">dm</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;cutoff_date&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">dm</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;balance&#39;</span><span class="p">,</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+
+<span class="c1"># create the reader</span>
+<span class="n">d</span><span class="o">.</span><span class="n">create_reader</span><span class="p">(</span><span class="n">dm</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">file_format</span><span class="o">=</span><span class="s1">&#39;delim&#39;</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="c1"># since we have already imported reader, this will force Python to re-load it.</span>
+<span class="n">importlib</span><span class="o">.</span><span class="n">reload</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+<span class="c1"># parameters for *reader*</span>
+<span class="n">param_m</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;data_file&#39;</span><span class="p">]</span> <span class="o">=</span>  <span class="n">pkg_resources</span><span class="o">.</span><span class="n">resource_filename</span><span class="p">(</span><span class="s1">&#39;data_reader&#39;</span><span class="p">,</span> <span class="s1">&#39;test_data/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;monthly.csv&#39;</span>
+<span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;output_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pandas&#39;</span>
+<span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="c1"># read the monthly records for our random sample.</span>
+<span class="n">dm_data</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">multi_process</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">reader</span><span class="p">,</span> <span class="n">param_m</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This example introduces another feature of <em>data_reader</em>: the <em>multi_process</em> function. The function takes as arguments the <em>reader</em> function,
+its parameters and the number of processes to spawn.  Multiprocessesing can substantially reduce run time. An experimet was performed on a larger
+version of this file (5 MM customers, 450MM monthly records).
+On an i7 laptop, two processes reduce run time by about 30%;on a six-core Xeon workstation, six processes reduces the run time by about 80%.</p>
+<p>If the <em>output_type</em> is ‘list’, ‘numpy’ or ‘pandas’ the return from <em>multi_processor</em> is the entire dataset in that format.  If the <em>output_type</em> is
+‘delim’ then a separate file is created by each process.  The file name is the user-supplied file with a number appended.  These can be combined by the
+bash <em>cat</em> command.</p>
+</div>
+<div class="section" id="example-5-user-supplied-functions">
+<h3>Example 5. User-supplied functions.<a class="headerlink" href="#example-5-user-supplied-functions" title="Permalink to this headline">¶</a></h3>
+<p>The user can supply a function to the <em>reader</em>.  The function is executed as each row is read. This function can do such things as:</p>
+<ul class="simple">
+<li>Calculate new fields to include in the output.</li>
+<li>Perform complex QA on the fields.</li>
+</ul>
+<p>The function takes a dictionary as its sole argument.  The elements in the dictionary are the field values for the row, the keys are the field names.  Since dictionaries
+are mutable, the function can modify–or add–values to the dictionary.</p>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li>The function must return a type <em>bool</em>.  If the function returns <em>True</em>, the row is kept; if <em>False</em> it is discarded.</li>
+<li>The function is called only after all the fields have been through the standard QA (checking type, illegal values, maximums, minimums) and if the row is
+to be otherwise kept (<em>e.g.</em> to be included in the sample).</li>
+</ul>
+<p>Returning to Example 4, suppose we wish to calculate the number of months between the <em>open_date</em> and <em>close_date</em>.  To add this field to the DataFrame while the file is
+being read, we first define a function to do the calculation and then add it to the call to the <em>reader</em>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">months</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+    <span class="n">rx</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;close_date&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">month</span> <span class="o">-</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;open_date&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">month</span>
+    <span class="n">rx</span> <span class="o">+=</span> <span class="mi">12</span> <span class="o">*</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;close_date&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">year</span> <span class="o">-</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;open_date&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">year</span><span class="p">)</span>
+    <span class="n">row</span><span class="p">[</span><span class="s1">&#39;time_on_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rx</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;user_function&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">months</span>
+</pre></div>
+</div>
+<p>The function takes the parameter <em>row</em> which is a dictionary of the fields being read.  It calculates <em>time_on_file</em> and then adds it to the dictionary.
+Finally, it returns <em>True</em> so that the row is kept.</p>
+</div>
+<div class="section" id="example-6-a-user-supplied-class-to-include-lagged-values">
+<h3>Example 6. A user-supplied class to include lagged values.<a class="headerlink" href="#example-6-a-user-supplied-class-to-include-lagged-values" title="Permalink to this headline">¶</a></h3>
+<p>The <em>reader</em> also takes an optional user-supplied class.  A class provides additional functionality beyond a function.  For instance, it can retain information from row to row.
+Again returning to Example 4, suppose we wish to include the balance from the prior month in the DataFrame for monthly values.  The lagged value only makes sense
+for values within an account.  Suppose, also, we wish to drop the first month in which the lag does not exist.  First, define the class we will need:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">lagger</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">lagged_account_number</span> <span class="o">=</span> <span class="kc">None</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">lagged_balance</span> <span class="o">=</span> <span class="kc">None</span>
+
+  <span class="k">def</span> <span class="nf">lag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fx</span><span class="p">):</span>
+      <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagged_account_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+          <span class="k">if</span> <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;account_number&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagged_account_number</span><span class="p">:</span>
+              <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;lag_balance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lagged_balance</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">lagged_account_number</span> <span class="o">=</span> <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;account_number&#39;</span><span class="p">]</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">lagged_balance</span> <span class="o">=</span> <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;balance&#39;</span><span class="p">]</span>
+              <span class="k">return</span> <span class="kc">True</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">lagged_account_number</span> <span class="o">=</span> <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;account_number&#39;</span><span class="p">]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">lagged_balance</span> <span class="o">=</span> <span class="n">fx</span><span class="p">[</span><span class="s1">&#39;balance&#39;</span><span class="p">]</span>
+      <span class="k">return</span> <span class="kc">False</span>
+</pre></div>
+</div>
+<p>We need to keep track of both the <em>account_number</em> and <em>balance</em> from the prior row.  These are stored in the <em>class</em> variables <em>self.lagged_account_number</em> and
+<em>self.lagged_balance</em>. The method returns <em>False</em> when the first month for an account is seen, otherwise it returns <em>True</em>.  The following entries are added to the
+parameter dictionary for <em>reader</em>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;user_class&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lagger</span>
+<span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;user_class_init&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">param_m</span><span class="p">[</span><span class="s1">&#39;user_method&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;lag&#39;</span>
+</pre></div>
+</div>
+<p>When run, the return DataFrame, <em>dm_data</em> contains a new field: <em>lag_balance</em>.  Of course, this depends on records within an <em>account_number</em> being sorted ascending
+in the ‘monthly’ file.  The <em>lagger</em> class could be modified to check for this.</p>
+</div>
+<div class="section" id="example-7-reading-a-flat-file">
+<h3>Example 7. Reading a flat file.<a class="headerlink" href="#example-7-reading-a-flat-file" title="Permalink to this headline">¶</a></h3>
+<p>The file test2.dat in the <em>test_data</em> directory is an example flat file.  The file has six fields:</p>
+<ul class="simple">
+<li>obs.     The integer row number.           Start column: 1, width: 3.</li>
+<li>float1.  A real number.                    Start column: 4, width: 6.</li>
+<li>letters. A string.                         Start column: 10, width: 5.</li>
+<li>state.   A U.S. state abbreviation.        Start column: 15, width: 2.</li>
+<li>date1.   A date using CCYYMMDD format.     Start column: 17, width: 8.</li>
+<li>date2.   A date using mm/dd/ccyy format.   Start column: 25, width: 10.</li>
+</ul>
+<p>The dictionary for this file can be specified as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">d8</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;obs&#39;</span><span class="p">,</span> <span class="s1">&#39;int&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;float1&#39;</span><span class="p">,</span> <span class="s1">&#39;float&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;letters&#39;</span><span class="p">,</span> <span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;date1&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">17</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">field_format</span><span class="o">=</span><span class="s1">&#39;CCYYMMDDE&#39;</span><span class="p">)</span>
+<span class="n">d8</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;date2&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span><span class="p">,</span> <span class="n">field_start</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">field_width</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">field_format</span><span class="o">=</span><span class="s1">&#39;MM/DD/CCYYB&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The ‘E’ on the date format ‘CCYYMMDDE’ tells the <em>reader</em> to move the date to the last day of the month.  The ‘B’ on the
+format ‘MM/DD/CCYYB’ tells the <em>reader</em> to move the date to the first day of the month.  The code to create the <em>reader</em> is:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">d</span><span class="o">.</span><span class="n">create_reader</span><span class="p">(</span><span class="n">d8</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">file_format</span><span class="o">=</span><span class="s1">&#39;flat&#39;</span><span class="p">,</span> <span class="n">lrecl</span><span class="o">=</span><span class="mi">36</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <em>reader</em> needs to know the total width of each row. In this example, the data occupies 35 columns.  The new line ‘\n’ character occupies the 36th.
+In DOS format, the <em>lrecel</em> would be 37 since DOS uses both ‘\n’ and ‘\r’ at the end of each line.</p>
+</div>
+<div class="section" id="example-8-reading-a-file-with-delimited-strings">
+<h3>Example 8. Reading a file with delimited strings.<a class="headerlink" href="#example-8-reading-a-file-with-delimited-strings" title="Permalink to this headline">¶</a></h3>
+<p>When reading a delimited file, sometimes the file to be read contains strings which include the delimiter.  In this case, it is customary to enclose the strings within another
+delimiter, often a double quote. <em>data_reader</em> can handle this situation.  The <em>create_reader</em> function takes the optional argument <em>string_delim</em>.
+The CSV file originatorsFull.csv in the test_data directory is an example of this.  It has two fields: a name and an integer key.
+Since the name may include a comma, the string is enclosed  in double quotes.</p>
+<p>The code to create the <em>reader</em>  looks like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">da</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;originator&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;str&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;key&#39;</span><span class="p">,</span><span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;int&#39;</span><span class="p">)</span>
+<span class="n">d</span><span class="o">.</span><span class="n">create_reader</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">file_format</span><span class="o">=</span><span class="s1">&#39;delim&#39;</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="n">string_delim</span><span class="o">=</span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-9-outputting-to-a-file">
+<h3>Example 9. Outputting to a file.<a class="headerlink" href="#example-9-outputting-to-a-file" title="Permalink to this headline">¶</a></h3>
+<p>The <em>reader</em> can also write its output to a file.</p>
+<p>Notes about writing the output to files:</p>
+<blockquote>
+<div><ul class="simple">
+<li>In this mode, the <em>reader</em> can work on arbitrarily large files as the files are read and written a line at a time.</li>
+<li>When used with <em>multi_process</em>, an output file is created by each process.  A number is appended to the user-supplied file name.
+These can be concatenated afterword via <em>cat</em>.</li>
+</ul>
+</div></blockquote>
+<p>Returning to Example 1, if the <em>reader</em> parameters are changed to:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pkg_resources</span>
+<span class="n">cbsa_file</span> <span class="o">=</span> <span class="n">pkg_resources</span><span class="o">.</span><span class="n">resource_filename</span><span class="p">(</span><span class="s1">&#39;data_reader&#39;</span><span class="p">,</span> <span class="s1">&#39;data/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;zipCBSA.dat&#39;</span>
+
+<span class="n">parameters0</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;data_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cbsa_path</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;output_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;delim&#39;</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;output_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;~/test/zipCBSA.csv&#39;</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;output_delim&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span>
+<span class="n">parameters0</span><span class="p">[</span><span class="s1">&#39;output_headers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+</div>
+<p>Then the reader will produce a comma-delimited version of zipCBSA.dat.</p>
+</div>
+<div class="section" id="example-10-tensorflow">
+<h3>Example 10. TensorFlow.<a class="headerlink" href="#example-10-tensorflow" title="Permalink to this headline">¶</a></h3>
+<p>The test_data directory of the data_reader distribution contains a TensorFlow file with the following fields:</p>
+<ul class="simple">
+<li>x1. Type float.</li>
+<li>x2. Type float.</li>
+<li>x3. Type float.</li>
+<li>x4. Type float.</li>
+<li>x5. Type date tensor (length 3 of type int)</li>
+<li>xd. Type bytes list.</li>
+<li>xe. Type int.</li>
+<li>bad. Type int.</li>
+</ul>
+<p>The file was created by the function below:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">write_tfr</span><span class="p">(</span><span class="n">tfrecord_filename</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">python_io</span><span class="o">.</span><span class="n">TFRecordWriter</span><span class="p">(</span><span class="n">tfrecord_filename</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">rows</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">x3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">x4</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">yr</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">20</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1999</span>
+        <span class="n">mo</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">12</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">day</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">x5</span> <span class="o">=</span> <span class="p">[</span><span class="n">yr</span><span class="p">,</span> <span class="n">mo</span><span class="p">,</span> <span class="n">day</span><span class="p">]</span>
+         <span class="n">pl</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x1</span> <span class="o">*</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">x2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x3</span> <span class="o">+</span> <span class="n">x3</span> <span class="o">*</span> <span class="n">x3</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x2</span><span class="p">)</span> <span class="o">+</span> <span class="n">x2</span> <span class="o">*</span> <span class="n">x2</span> <span class="o">+</span> <span class="n">x2</span> <span class="o">*</span> <span class="n">x3</span>
+
+         <span class="n">xd</span> <span class="o">=</span> <span class="s1">&#39;now now&#39;</span>  <span class="c1"># values:  &#39;now now&#39;, &#39;then then&#39;, &#39;now then&#39;, &#39;then now&#39;</span>
+        <span class="n">xe</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">x4</span> <span class="o">&lt;</span> <span class="mf">0.75</span> <span class="ow">and</span> <span class="n">x4</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">:</span>
+            <span class="n">xd</span> <span class="o">=</span> <span class="s1">&#39;then then&#39;</span>
+            <span class="n">xe</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">pl</span> <span class="o">-=</span> <span class="mf">1.0</span>
+        <span class="k">if</span> <span class="n">x4</span> <span class="o">&lt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">x4</span> <span class="o">&gt;=</span> <span class="mf">0.25</span><span class="p">:</span>
+            <span class="n">xd</span> <span class="o">=</span> <span class="s1">&#39;now then&#39;</span>
+            <span class="n">xe</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="n">pl</span> <span class="o">+=</span> <span class="mf">2.0</span>
+        <span class="k">if</span> <span class="n">x4</span> <span class="o">&lt;</span> <span class="mf">0.25</span><span class="p">:</span>
+            <span class="n">xd</span> <span class="o">=</span> <span class="s1">&#39;then now&#39;</span>
+            <span class="n">xe</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="n">pl</span> <span class="o">-=</span> <span class="mf">2.0</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pl</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pl</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">prob</span><span class="p">:</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">xf</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">xd</span><span class="p">]</span>
+        <span class="n">xe</span> <span class="o">=</span> <span class="p">[</span><span class="n">xe</span><span class="p">]</span>
+
+        <span class="n">f1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">float_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">FloatList</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">x1</span><span class="p">))</span>
+        <span class="n">f2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">float_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">FloatList</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">x2</span><span class="p">))</span>
+        <span class="n">f3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">float_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">FloatList</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">x3</span><span class="p">))</span>
+        <span class="n">f5</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">int64_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Int64List</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">xe</span><span class="p">))</span>
+        <span class="n">f6</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">int64_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Int64List</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">x5</span><span class="p">))</span>
+        <span class="n">f4</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">bytes_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">BytesList</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">xf</span><span class="p">))</span>
+        <span class="n">i1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Feature</span><span class="p">(</span><span class="n">int64_list</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Int64List</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">bad</span><span class="p">))</span>
+        <span class="n">feature</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;bad&#39;</span><span class="p">:</span> <span class="n">i1</span><span class="p">,</span> <span class="s1">&#39;x1&#39;</span><span class="p">:</span> <span class="n">f1</span><span class="p">,</span> <span class="s1">&#39;x2&#39;</span><span class="p">:</span> <span class="n">f2</span><span class="p">,</span> <span class="s1">&#39;x3&#39;</span><span class="p">:</span> <span class="n">f3</span><span class="p">,</span> <span class="s1">&#39;xd&#39;</span><span class="p">:</span> <span class="n">f4</span><span class="p">,</span> <span class="s1">&#39;xe&#39;</span><span class="p">:</span> <span class="n">f5</span><span class="p">,</span> <span class="s1">&#39;x5&#39;</span><span class="p">:</span> <span class="n">f6</span><span class="p">}</span>
+
+        <span class="n">features</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Features</span><span class="p">(</span><span class="n">feature</span><span class="o">=</span><span class="n">feature</span><span class="p">)</span>
+        <span class="n">example</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">Example</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">example</span><span class="o">.</span><span class="n">SerializeToString</span><span class="p">())</span>
+
+    <span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If you look at this function, you will see that</p>
+<ol class="arabic simple">
+<li>‘bad’ is a binary outcome related to the the x’s (<em>i.e.</em> it’s a logistic model)</li>
+<li>The x’s interact.</li>
+<li>The relationship of the x’s to ‘bad’ is non-linear even in log odds space.</li>
+<li>The date tensor is not related to ‘bad’.</li>
+<li>xe and xd encode the same information.</li>
+</ol>
+<p>Since the file is already in TFRecord format, there is no need to create a reader.  However, it would
+be very helpful to have <em>input_fn</em> and <em>model_columns</em> functions.</p>
+<p>To do so, we first must create a data dictionary for the file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">data_reader</span> <span class="k">as</span> <span class="nn">d</span>
+<span class="kn">from</span> <span class="nn">data_reader</span> <span class="k">import</span> <span class="n">make_input_fn</span>
+<span class="kn">from</span> <span class="nn">data_reader</span> <span class="k">import</span> <span class="n">make_model_columns</span>
+
+
+<span class="n">da</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">BuildDataDictionary</span><span class="p">()</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;x2&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;x3&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;float&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;xd&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;str&#39;</span><span class="p">,</span> <span class="n">legal_values</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;now now&#39;</span><span class="p">,</span> <span class="s1">&#39;then then&#39;</span><span class="p">,</span> <span class="s1">&#39;now then&#39;</span><span class="p">,</span> <span class="s1">&#39;then now&#39;</span><span class="p">],</span>
+             <span class="n">illegal_replacement_value</span><span class="o">=</span><span class="s1">&#39;X&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;xe&#39;</span><span class="p">,</span><span class="s1">&#39;int&#39;</span><span class="p">,</span><span class="n">minimum_value</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">maximum_value</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">minimum_replacement_value</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">maximum_replacement_value</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;x5&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;date&#39;</span><span class="p">,</span> <span class="n">field_format</span><span class="o">=</span><span class="s1">&#39;CCYYMMDD&#39;</span><span class="p">)</span>
+<span class="n">da</span><span class="o">.</span><span class="n">add_field</span><span class="p">(</span><span class="s1">&#39;bad&#39;</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="s1">&#39;int&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then the <em>input_fn</em> can be created:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">make_input_fn</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="s1">&#39;/home/will/tmp/inp.py&#39;</span><span class="p">,</span> <span class="n">dep_var</span><span class="o">=</span><span class="s1">&#39;bad&#39;</span><span class="p">,</span> <span class="n">dates</span><span class="o">=</span><span class="s1">&#39;ccyymmdd&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The call specifies that ‘bad’ is the dependent variable for the analyis. The <em>input_fn</em> will return this tensor
+separately. It also specifies that all dates should be converted to <em>int</em> in the format CCYYMMDD.</p>
+<p>Here is the <em>input_fn</em> created b <em>make_input_fn</em>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="k">def</span> <span class="nf">input_fn</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">take</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">parallel_calls</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">parse_input</span><span class="p">(</span><span class="n">proto</span><span class="p">):</span>
+        <span class="n">shape_np</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">keys_to_features</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;x1&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;x2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;x3&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;xd&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">VarLenFeature</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">string</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;bad&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">keys_to_features</span><span class="p">[</span><span class="s1">&#39;xe&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">FixedLenFeature</span><span class="p">((</span><span class="n">shape_np</span><span class="p">),</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="n">parsed_features</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">parse_single_example</span><span class="p">(</span><span class="n">proto</span><span class="p">,</span> <span class="n">keys_to_features</span><span class="p">)</span>
+        <span class="n">dep_var</span> <span class="o">=</span> <span class="n">parsed_features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;bad&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">parsed_features</span><span class="p">,</span> <span class="n">dep_var</span>
+
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">TFRecordDataset</span><span class="p">(</span><span class="n">files</span><span class="p">)</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">skip</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">take</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="n">take</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">shuffle</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">suffle</span><span class="p">(</span><span class="n">buffer_size</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">parse_input</span><span class="p">,</span> <span class="n">num_parallel_calls</span><span class="o">=</span><span class="n">parallel_calls</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_epochs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
+    <span class="nb">iter</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">make_one_shot_iterator</span><span class="p">()</span>
+    <span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">dep_var</span><span class="p">)</span> <span class="o">=</span> <span class="nb">iter</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;xd&#39;</span><span class="p">)</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">dense_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">sparse_to_dense</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">cols</span><span class="p">),</span> <span class="n">e</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_join</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">features</span><span class="p">[</span><span class="s1">&#39;xd&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">h</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">features</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">]</span>
+    <span class="n">yr</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">mon</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">day</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">yrmonday</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">yr</span><span class="p">,</span><span class="mi">10000</span><span class="p">),</span><span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">mon</span><span class="p">,</span><span class="mi">100</span><span class="p">)),</span><span class="n">day</span><span class="p">)</span>
+    <span class="n">features</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">yrmonday</span>
+    <span class="k">return</span> <span class="n">features</span><span class="p">,</span> <span class="n">dep_var</span>
+</pre></div>
+</div>
+<p>As read, the tensor <em>xd</em> is a bytes list. It is removed from the features dictionary, converted to strings, and returned to the dictionary.</p>
+<p>The call below creates the <em>model_columns</em> function:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">make_model_columns</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span> <span class="s1">&#39;/home/will/tmp/col.py&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The following function is produced by this call:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="k">def</span> <span class="nf">model_columns</span><span class="p">(</span><span class="n">include_columns</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&quot;</span>
+<span class="sd">    :param include_columns: features in the model</span>
+<span class="sd">    :type include_columns: dict</span>
+
+<span class="sd">    include_columns has keys equal to the feature name</span>
+<span class="sd">    the entry is how to handle it. Options are</span>
+<span class="sd">    - hash_size</span>
+<span class="sd">    - embed_size</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="s1">&#39;x1&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x1&#39;</span><span class="p">][</span><span class="s1">&#39;boundaries&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">boundaries</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">)</span>
+            <span class="n">x1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">bucketized_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">boundaries</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">x1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;x2&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x2&#39;</span><span class="p">][</span><span class="s1">&#39;boundaries&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">boundaries</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x2&#39;</span><span class="p">)</span>
+            <span class="n">x2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">bucketized_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">boundaries</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x2&#39;</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">x2</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;x3&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x3&#39;</span><span class="p">][</span><span class="s1">&#39;boundaries&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">boundaries</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x3&#39;</span><span class="p">)</span>
+            <span class="n">x3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">bucketized_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">boundaries</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x3</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="s1">&#39;x3&#39;</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">x3</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;xd&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">vocab</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">vocab</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;now now&#39;</span><span class="p">]</span>
+        <span class="n">vocab</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;now then&#39;</span><span class="p">]</span>
+        <span class="n">vocab</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;then now&#39;</span><span class="p">]</span>
+        <span class="n">vocab</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;then then&#39;</span><span class="p">]</span>
+        <span class="n">vocab</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span>
+        <span class="n">n_oov</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">categorical_column_with_vocabulary_list</span><span class="p">(</span><span class="s1">&#39;xd&#39;</span><span class="p">,</span> <span class="n">vocab</span><span class="p">,</span> <span class="n">num_oov_buckets</span><span class="o">=</span><span class="n">n_oov</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;xd&#39;</span><span class="p">][</span><span class="s1">&#39;embed_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">embed_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">xd</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">embedding_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">embed_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xd</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">indicator_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">xd</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;x5&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">][</span><span class="s1">&#39;hash_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="mi">1000000</span>
+        <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">categorical_column_with_hash_bucket</span><span class="p">(</span><span class="s1">&#39;x5&#39;</span><span class="p">,</span> <span class="n">hash_bucket_size</span><span class="o">=</span><span class="n">hash_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">][</span><span class="s1">&#39;embed_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">embed_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">x5</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">embedding_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">embed_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x5</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">indicator_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">x5</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;bad&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;bad&#39;</span><span class="p">][</span><span class="s1">&#39;hash_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="mi">1000000</span>
+        <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">categorical_column_with_hash_bucket</span><span class="p">(</span><span class="s1">&#39;bad&#39;</span><span class="p">,</span> <span class="n">hash_bucket_size</span><span class="o">=</span><span class="n">hash_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;bad&#39;</span><span class="p">][</span><span class="s1">&#39;embed_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">embed_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">embedding_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">embed_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bad</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">indicator_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">bad</span><span class="p">]</span>
+    <span class="k">if</span> <span class="s1">&#39;xe&#39;</span> <span class="ow">in</span> <span class="n">include_columns</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;xe&#39;</span><span class="p">][</span><span class="s1">&#39;hash_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">hash_size</span> <span class="o">=</span> <span class="mi">1000000</span>
+        <span class="n">tmp_field</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">categorical_column_with_hash_bucket</span><span class="p">(</span><span class="s1">&#39;xe&#39;</span><span class="p">,</span> <span class="n">hash_bucket_size</span><span class="o">=</span><span class="n">hash_size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;xe&#39;</span><span class="p">][</span><span class="s1">&#39;embed_size&#39;</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">embed_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">embed_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">xe</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">embedding_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">,</span> <span class="n">embed_size</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xe</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">feature_column</span><span class="o">.</span><span class="n">indicator_column</span><span class="p">(</span><span class="n">tmp_field</span><span class="p">)</span>
+        <span class="n">columns</span> <span class="o">+=</span> <span class="p">[</span><span class="n">xe</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">columns</span>
+</pre></div>
+</div>
+<p>The user passes a dictionary, <em>include_columns</em>. The keys to the dictionary are the features to use in the model.
+The dictionary entries themselves are dictionaries of options (‘<strong>feature dictionaries</strong>’).</p>
+<p>For features of type <em>float</em>:</p>
+<ul class="simple">
+<li>To include the feature as-is, there only needs to be entry with the feature name as key.</li>
+<li>To bucketize the feature, the feature dictionary needs an entry with a key ‘boundaries’. The value of the key is a list
+of boundary values for the buckets.</li>
+</ul>
+<p>For features of type <em>str</em>:</p>
+<p>You cannot include a <em>tf.string</em> directly into a DNN model (note: you can in a linear model). There are two options:</p>
+<ul class="simple">
+<li>indicator columns. The values of the string are mapped to a one-hot tensor whose length is the number of different values of the string.  This is
+the default behavior if there is no key called <em>embed_size</em> in the feature dictionary.  If the data_reader entry for the field
+includes the list of legal values, then these are built in to the feature.  If the user has specified an ‘illegal replacement’ value for the feature
+in the data_reader dictionary, this is also included. If the user has not done this, then a special ‘out of value’ bucket is created for the feature.
+If the user has not specified legal values, then there is no vocabulary list to create. In this case, the hash index method is used. The user
+may specify the size of the hash array using the feature key ‘hash_size’.</li>
+<li>embedded layer. If the feature dictionary contains a key ‘embed_size’ then an embedding layer is created with the number of elements specified by ‘embed_size’.
+In this case, the model maps each unique value of the string to a tensor of size ‘embed_size’. The entries of each tensor are treated as parameters to the model
+and are tuned during the model fit.</li>
+</ul>
+<p>The options for features columns within TensorFlow are documented <a class="reference external" href="https://www.tensorflow.org/api_docs/python/tf/feature_column">here</a>.</p>
+<p>The code below shows how these two functions are used:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">modeling_tools.functions</span> <span class="k">import</span> <span class="n">ks_calculate</span><span class="p">,</span> <span class="n">decile_plot</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">pkg_resources</span>
+
+<span class="c1"># specifies the model and optimization options.  The model_columns function is used here.</span>
+<span class="k">def</span> <span class="nf">build_estimator</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">include_columns</span><span class="p">):</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="n">model_columns</span><span class="p">(</span><span class="n">include_columns</span><span class="p">)</span>
+
+    <span class="n">run_config</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">RunConfig</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+        <span class="n">session_config</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">ConfigProto</span><span class="p">(</span><span class="n">device_count</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;GPU&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}))</span>
+
+    <span class="n">hidden_units</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">25</span><span class="p">]</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">DNNClassifier</span><span class="p">(</span>
+        <span class="n">model_dir</span><span class="o">=</span><span class="n">model_dir</span><span class="p">,</span>
+        <span class="n">feature_columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span>
+        <span class="n">hidden_units</span><span class="o">=</span><span class="n">hidden_units</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">FtrlOptimizer</span><span class="p">(</span>
+            <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+            <span class="n">l2_regularization_strength</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+            <span class="n">l1_regularization_strength</span><span class="o">=</span><span class="mf">1.0</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="c1"># builds the model, evaluates it, makes a KS and decile plot.</span>
+<span class="k">def</span> <span class="nf">bev</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">data_file</span><span class="p">,</span> <span class="n">include_columns</span><span class="p">,</span> <span class="n">train_epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">build_take</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">val_skip</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">val_take</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="c1"># Clean up the model directory if present</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">build_estimator</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">include_columns</span><span class="p">)</span>
+
+    <span class="n">epochs_per_eval</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">train_epochs</span> <span class="o">//</span> <span class="n">epochs_per_eval</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;training step &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+        <span class="c1"># steps is the number of batches to draw for the training epoch.</span>
+        <span class="c1"># It corresponds to the &#39;steps&#39; axis on TensorBoard.</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">take</span><span class="o">=</span><span class="n">build_take</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">take</span><span class="o">=</span><span class="n">build_take</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="n">steps</span><span class="p">)</span>
+
+    <span class="c1"># prints out the paramaters to the model just fit</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">get_variable_names</span><span class="p">():</span>
+        <span class="c1"># skip Follow The Regularized Leader values</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;FTRL&#39;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">get_variable_value</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="n">elapsed_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;elapsed time: </span><span class="si">{:.3f}</span><span class="s1"> seconds&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">elapsed_time</span><span class="p">))</span>
+
+    <span class="c1"># pull a sample not used in model build</span>
+    <span class="n">val_batch</span> <span class="o">=</span> <span class="n">val_take</span> <span class="o">-</span> <span class="n">val_skip</span>
+    <span class="n">yh</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">val_batch</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="n">val_skip</span><span class="p">,</span> <span class="n">take</span><span class="o">=</span><span class="n">val_take</span><span class="p">)))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">yh</span><span class="p">))</span>
+    <span class="n">pr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;probabilities&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">yh</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;train&#39;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">sess</span><span class="p">:</span>
+        <span class="n">val_data_iter</span> <span class="o">=</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">val_batch</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="n">val_skip</span><span class="p">,</span> <span class="n">take</span><span class="o">=</span><span class="n">val_take</span><span class="p">)</span>
+        <span class="n">val_data</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">val_data_iter</span><span class="p">)</span>  <span class="c1"># cd is a tuple. First entry is a dict of features, second a numpy array of labels</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">val_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># a couple sanity checks</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">pr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">pr</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+
+    <span class="c1"># p tensorboard.main --logdir=&#39;/tmp/model&#39;</span>
+    <span class="c1"># to load labels for the projector for embeddings, create a tab separated file like:</span>
+    <span class="c1"># index\t name</span>
+    <span class="c1"># 0\t hi</span>
+
+    <span class="n">pr</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+    <span class="n">ks_calculate</span><span class="p">(</span><span class="n">pr</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">decile_plot</span><span class="p">(</span><span class="n">pr</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1">###################################</span>
+<span class="c1"># build and evaluate model</span>
+<span class="c1">###################################</span>
+<span class="c1">#</span>
+<span class="c1"># all the model info is output here. Can use it later and also look at it on TensorBoard.</span>
+<span class="n">model_dir</span> <span class="o">=</span> <span class="s1">&#39;/tmp/model&#39;</span>
+<span class="c1">#</span>
+<span class="n">tfrecord_filename</span> <span class="o">=</span> <span class="n">test_data_path</span> <span class="o">=</span> <span class="n">pkg_resources</span><span class="o">.</span><span class="n">resource_filename</span><span class="p">(</span><span class="s1">&#39;data_reader&#39;</span><span class="p">,</span> <span class="s1">&#39;test_data/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;testxy.tfr&#39;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="c1"># this is where data_reader was instructed to put the input_fn and model_columns functions</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;/home/will/tmp&#39;</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">inp</span> <span class="k">import</span> <span class="n">input_fn</span>
+<span class="kn">from</span> <span class="nn">col</span> <span class="k">import</span> <span class="n">model_columns</span>
+
+<span class="c1"># specify the model features</span>
+<span class="n">include_columns</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x1&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;yes&#39;</span>
+<span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;yes&#39;</span>
+<span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x3&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;yes&#39;</span>
+<span class="c1"># add check for date part</span>
+<span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;x5&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;embed_size&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;hash_size&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}</span>
+<span class="c1"># use an embedding layer. If set to &#39;0&#39; or do not include the &#39;embed_size&#39; key, it will use one-hot tensors (indicator variables).</span>
+<span class="n">include_columns</span><span class="p">[</span><span class="s1">&#39;xd&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;embed_size&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+<span class="n">bev</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">tfrecord_filename</span><span class="p">,</span> <span class="n">include_columns</span><span class="p">,</span> <span class="n">train_epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">build_take</span><span class="o">=</span><span class="mi">75000</span><span class="p">,</span> <span class="n">val_skip</span><span class="o">=</span><span class="mi">75000</span><span class="p">,</span> <span class="n">val_take</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>
+    <span class="n">steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to data_reader’s documentation!</a></li>
+      <li>Next: <a href="data_reader.html" title="next chapter">Data Reader</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Will Alexander.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/introduction.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
